@@ -53,7 +53,13 @@ function setfunction(endtime){
     getresults=setTimeout(async function(){
         if(lastcontest==undefined)return;
         let result = await queryapi("https://codeforces.com/api/contest.standings?contestId="+lastcontest["result"]["contest"]["id"]+"&showUnofficial=true");
-        if(result["status"]=="FAILED")return client.channels.cache.get(channelid).send("Error Getting Results");
+        if(result["status"]=="FAILED"){
+            client.channels.cache.get(channelid).lastMessage.reactions.resolve("🔄").users.remove(botid);
+            lastcontest=undefined;
+            getresults=undefined;
+            currentmessage=undefined;
+            return client.channels.cache.get(channelid).send("Error Getting Results");
+        }
         let team1results=undefined,team2results=undefined;
         for(let i=0;i<result["result"]["rows"].length;i++){
             for(let j=0;j<result["result"]["rows"][i]["party"]["members"].length;j++){
@@ -65,7 +71,13 @@ function setfunction(endtime){
                 }
             }
         }
-        if(team1results==undefined||team2results==undefined)return client.channels.cache.get(channelid).send("Error Getting Results");
+        if(team1results==undefined||team2results==undefined){
+            client.channels.cache.get(channelid).lastMessage.reactions.resolve("🔄").users.remove(botid);
+            lastcontest=undefined;
+            getresults=undefined;
+            currentmessage=undefined;
+            return client.channels.cache.get(channelid).send("Error Getting Results");
+        }
         let ret=autoembed();
         let teamsize=team1.length;
         let team1people="",team2people="";
@@ -89,6 +101,8 @@ function setfunction(endtime){
                 team2solves+=result["result"]["problems"][i]["index"];
             }
         }
+        if(team1solves=="")team1solves="NONE"
+        if(team2solves=="")team2solves="NONE"
         ret.addField(team1people+" Solves:",team1solves);
         ret.addField(team2people+" Solves:",team2solves);
         client.channels.cache.get(channelid).lastMessage.edit(ret);
@@ -107,10 +121,8 @@ function addreact(){
 client.on('messageReactionAdd', async (reaction, user) => {
     if(user.bot)return;
     if(reaction.message==currentmessage&&reaction.emoji.name=="🔄"){
-        if((lastupdate[user.id]!=undefined&&Date.now()-lastupdate[user.id]<5000)||Date.now()<starttime){
-            reaction.users.remove(user);
-            return;
-        }
+        reaction.users.remove(user);
+        if((lastupdate[user.id]!=undefined&&Date.now()-lastupdate[user.id]<5000)||Date.now()<starttime)return;
         lastupdate[user.id]=Date.now();
         let result = await queryapi("https://codeforces.com/api/contest.standings?contestId="+lastcontest["result"]["contest"]["id"]+"&showUnofficial=true");
         if(result["status"]=="FAILED")return client.channels.cache.get(channelid).send("Error Getting Results");
@@ -149,10 +161,11 @@ client.on('messageReactionAdd', async (reaction, user) => {
                 team2solves+=result["result"]["problems"][i]["index"];
             }
         }
+        if(team1solves=="")team1solves="NONE"
+        if(team2solves=="")team2solves="NONE"
         ret.addField(team1people+" Solves:",team1solves);
         ret.addField(team2people+" Solves:",team2solves);
         client.channels.cache.get(channelid).lastMessage.edit(ret);
-        reaction.users.remove(user);
     }
 })
 client.on('message',async (msg)=>{
